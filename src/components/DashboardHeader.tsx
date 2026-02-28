@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../hooks';
 import { Button } from './Button';
 
@@ -7,8 +8,10 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
   const { user, logout } = useAuth();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   return (
+    <>
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm shadow-lg border-b-4 border-[#009900]">
       <div className="px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
@@ -99,26 +102,13 @@ export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
 
             {/* User Menu */}
             <div className="flex items-center gap-3 pl-3 border-l border-[#ccffcc]">
-              {user?.photoURL && (
-                <div className="relative">
-                  <img
-                    src={user.photoURL}
-                    alt={user.displayName || 'User'}
-                    className="w-10 h-10 rounded-full ring-2 ring-[#66cc66] shadow-md"
-                  />
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-[#009900] rounded-full border-2 border-white"></div>
-                </div>
-              )}
               <div className="hidden lg:block">
                 <p className="text-sm font-semibold text-[#003300]">
-                  {user?.displayName || 'Usuário'}
-                </p>
-                <p className="text-xs text-[#006600]">
-                  {user?.email}
+                  {user?.username || 'Usuário'}
                 </p>
               </div>
               <Button
-                onClick={logout}
+                onClick={() => setShowLogoutDialog(true)}
                 className="hidden sm:flex bg-gradient-to-r from-[#006600] to-[#003300] hover:from-[#003300] hover:to-[#006600] text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all duration-300 text-sm"
               >
                 Sair
@@ -128,5 +118,44 @@ export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
         </div>
       </div>
     </header>
+
+    {/* Logout Confirmation Dialog */}
+    {showLogoutDialog && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowLogoutDialog(false)}
+        />
+        {/* Dialog */}
+        <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-[#ccffcc]/40">
+          {/* Icon */}
+          <div className="w-14 h-14 bg-gradient-to-br from-[#ccffcc] to-[#66cc66]/30 rounded-2xl mx-auto flex items-center justify-center mb-5">
+            <svg className="w-7 h-7 text-[#006600]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-[#003300] text-center mb-2">Sair da conta</h2>
+          <p className="text-sm text-[#006600] text-center mb-7">
+            Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o sistema.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLogoutDialog(false)}
+              className="flex-1 py-2.5 rounded-xl border-2 border-[#66cc66]/50 text-[#006600] font-semibold hover:bg-[#ccffcc]/40 transition-colors text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { setShowLogoutDialog(false); logout(); }}
+              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#009900] to-[#006600] hover:from-[#006600] hover:to-[#003300] text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 text-sm"
+            >
+              Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 };

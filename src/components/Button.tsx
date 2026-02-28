@@ -4,6 +4,7 @@ interface ButtonProps {
   readonly className?: string;
   readonly variant?: 'primary' | 'secondary' | 'outline';
   readonly disabled?: boolean;
+  readonly type?: 'button' | 'submit' | 'reset';
 }
 
 export function Button({ 
@@ -11,7 +12,8 @@ export function Button({
   onClick, 
   className = '', 
   variant = 'primary',
-  disabled = false
+  disabled = false,
+  type = 'button',
 }: ButtonProps) {
   const baseStyles = 'px-4 py-2 rounded-md font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
   
@@ -29,6 +31,7 @@ export function Button({
 
   return (
     <button 
+      type={type}
       onClick={onClick}
       disabled={disabled}
       className={finalClassName}

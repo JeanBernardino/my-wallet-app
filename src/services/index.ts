@@ -1,5 +1,4 @@
 export { storageService } from './storage.service';
-export { firebaseAuthService, firestoreService } from './firebase.service';
 export { apiService, apiClient } from './api.service';
 export { default as api } from './api.service';
 export * from './wallet.service';

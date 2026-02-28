@@ -1,15 +1,30 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import { User } from 'firebase/auth';
-import { firebaseAuthService } from '../services';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const TOKEN_KEY = 'mywallet_token';
+const USER_KEY = 'mywallet_user';
+
+export interface AuthUser {
+  username: string;
+}
+
+interface LoginApiResponse {
+  success: boolean;
+  data: {
+    token: string;
+    type: string;
+    username: string;
+    expiresIn: number;
+  } | null;
+  error: string | null;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   error: string | null;
-  signInWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  getToken: () => Promise<string | null>;
-  refreshToken: () => Promise<string | null>;
+  signIn: (username: string, password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,107 +34,69 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Observa mudanças no estado de autenticação
-    const unsubscribe = firebaseAuthService.onAuthStateChange(async (user) => {
-      setUser(user);
-      setLoading(false);
-      
-      // Log do token para debug (remover em produção)
-      if (user) {
-        try {
-          const token = await user.getIdToken();
-          console.log('✅ Usuário autenticado:', user.email);
-          console.log('🔑 Token obtido:', token.substring(0, 20) + '...');
-        } catch (err) {
-          console.error('❌ Erro ao obter token:', err);
-        }
+    const token = localStorage.getItem(TOKEN_KEY);
+    const stored = localStorage.getItem(USER_KEY);
+    if (token && stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
       }
-    });
-
-    return () => unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signIn = async (username: string, password: string): Promise<void> => {
     try {
       setError(null);
       setLoading(true);
-      const result = await firebaseAuthService.signInWithGoogle();
-      
-      // Obtém o token após o login
-      const token = await result.user.getIdToken();
-      console.log('✅ Login bem-sucedido!');
-      console.log('🔑 Token ID:', token.substring(0, 20) + '...');
-      
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const body: LoginApiResponse = await response.json().catch(() => ({ success: false, data: null, error: 'Erro inesperado' }));
+
+      if (!response.ok || !body.success || !body.data) {
+        throw new Error(body.error || 'Credenciais inválidas');
+      }
+
+      const { token, username: loggedUsername } = body.data;
+      const user: AuthUser = { username: loggedUsername };
+
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      setUser(user);
+      console.log('✅ Login bem-sucedido:', loggedUsername);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
-      setError(errorMessage);
-      console.error('❌ Erro no login:', errorMessage);
+      const message = err instanceof Error ? err.message : 'Credenciais inválidas';
+      setError(message);
+      console.error('❌ Erro no login:', message);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    try {
-      setError(null);
-      await firebaseAuthService.signOut();
-      console.log('✅ Logout realizado');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer logout';
-      setError(errorMessage);
-      console.error('❌ Erro no logout:', errorMessage);
-      throw err;
-    }
-  };
-
-  const getToken = async (): Promise<string | null> => {
-    try {
-      if (!user) {
-        console.warn('⚠️  Nenhum usuário autenticado');
-        return null;
-      }
-      
-      const token = await user.getIdToken();
-      return token;
-    } catch (err) {
-      console.error('❌ Erro ao obter token:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao obter token');
-      return null;
-    }
-  };
-
-  const refreshToken = async (): Promise<string | null> => {
-    try {
-      if (!user) {
-        console.warn('⚠️  Nenhum usuário autenticado');
-        return null;
-      }
-      
-      // Força refresh do token (true = forceRefresh)
-      const token = await user.getIdToken(true);
-      console.log('🔄 Token atualizado:', token.substring(0, 20) + '...');
-      return token;
-    } catch (err) {
-      console.error('❌ Erro ao atualizar token:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar token');
-      return null;
-    }
+  const logout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setUser(null);
+    console.log('✅ Logout realizado');
   };
 
   const value: AuthContextType = useMemo(() => ({
     user,
     loading,
     error,
-    signInWithGoogle,
+    signIn,
     logout,
-    getToken,
-    refreshToken,
   }), [user, loading, error]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
